@@ -1,4 +1,6 @@
 import os
+import re
+from datetime import datetime
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -53,3 +55,22 @@ class MongoDBService:
             "status": {"$in": ["ACTIVE", "PUBLISHED"]},
         })
         return await cursor.to_list(length=None)
+
+    async def get_tramites_by_date(self, from_date: str, to_date: str) -> list:
+        from_dt = datetime.strptime(from_date, "%Y-%m-%d")
+        to_dt = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+        cursor = self.db.tramites.find({
+            "createdAt": {"$gte": from_dt, "$lte": to_dt}
+        })
+        return await cursor.to_list(length=None)
+
+    async def get_tramites_by_client(self, name: str) -> list:
+        cursor = self.db.tramites.find({
+            "clienteInfo.nombre": {"$regex": name, "$options": "i"}
+        })
+        return await cursor.to_list(length=None)
+
+    async def get_all_tramites_with_submissions(self) -> tuple:
+        tramites = await self.db.tramites.find({}).to_list(length=None)
+        submissions = await self.db.task_submissions.find({}).to_list(length=None)
+        return tramites, submissions
